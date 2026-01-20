@@ -1,0 +1,83 @@
+/* ============================================
+   RESET & BASE STYLES
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* Primary Accent Colors (Peach / Coral) */
+    --color-primary: #E8947E;
+    --color-primary-hover: #DE7F65;
+    --color-accent-soft: #FDE7DF;
+
+    /* Secondary Accent Colors (Orange) */
+    --color-orange: #F15A29;
+    --color-orange-hover: #D94E20;
+    --color-orange-soft: #FEE9E2;
+
+    /* Neutrals */
+    --color-white: #FFFFFF;
+    --color-warm-off-white: #FAF8F6;
+    --color-bg-soft: #F5F5F5;
+    --color-border: #E4E4E4;
+    --color-text-main: #111111;
+    --color-text-secondary: #6C6C6C;
+
+    /* Dark Section */
+    --color-dark: #000000;
+    --color-text-on-dark: #FFFFFF;
+
+    /* Typography */
+    --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-h1-size: 48px;
+    --font-h2-size: 32px;
+    --font-h3-size: 24px;
+    --font-body-size: 16px;
+    --line-height-body: 1.6;
+
+    /* Spacing */
+    --container-max-width: 1200px;
+    --section-spacing: 96px;
+    --card-padding: 32px;
+    --border-radius-card: 20px;
+    --border-radius-button: 0;
+    --border-radius-input: 10px;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-body-size);
+    line-height: var(--line-height-body);
+    color: var(--color-text-main);
+    background-color: var(--color-white);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s ease;
+}
+
+ul {
+    list-style: none;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+#root {
+    min-height: 100vh;
+}
