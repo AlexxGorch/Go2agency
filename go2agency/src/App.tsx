@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import { Rocket, Bot, Wrench, BarChart3, TrendingUp, Target, Zap, Code, Heart, Search, Globe, Lightbulb, Link, Palette, Settings, Laptop, Smartphone, MapPin, Megaphone, Star, ArrowUpRight, ChevronRight, X, Plus, FileCheck, ClipboardCheck, MessageCircle } from 'lucide-react'
+import { submitContactForm } from './api/contact'
+import type { ContactFormSource, ContactFormState } from './types/contact'
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [activeFaqCategory, setActiveFaqCategory] = useState<string>('general');
   const [isScrolled, setIsScrolled] = useState(false);
-  const [language, setLanguage] = useState<'ru' | 'en'>('ru');
+  const [language, setLanguage] = useState<'ru' | 'en'>('en');
   const [servicesVisible, setServicesVisible] = useState(false);
+  const [activeServiceCard, setActiveServiceCard] = useState<number | null>(null);
   const [stagesVisible, setStagesVisible] = useState<Set<number>>(new Set());
   const [whyUsVisible, setWhyUsVisible] = useState<Set<number>>(new Set());
   const [stageProgress, setStageProgress] = useState(0);
@@ -43,6 +46,18 @@ function App() {
     phone: ''
   });
 
+  // Form submission states
+  const [auditFormState, setAuditFormState] = useState<ContactFormState>({
+    loading: false,
+    success: false,
+    error: null
+  });
+  const [contactFormState, setContactFormState] = useState<ContactFormState>({
+    loading: false,
+    success: false,
+    error: null
+  });
+
   const t = (ru: string, en: string) => (language === 'ru' ? ru : en);
 
   const formatPhoneNumber = (value: string, countryCode: string) => {
@@ -69,6 +84,28 @@ function App() {
       if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
       if (digits.length <= 9) return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
       return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9, 13)}`;
+    } else if (countryCode === '+48') {
+      // Польша: +48 XXX XXX XXX
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+      return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)}`;
+    } else if (countryCode === '+44') {
+      // Великобритания: +44 XXX XXXX XXXX
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 7) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+      return `${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7, 11)}`;
+    } else if (countryCode === '+49') {
+      // Германия: +49 XXX XXXXXXX
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+      return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 11)}`;
+    } else if (countryCode === '+33') {
+      // Франция: +33 X XX XX XX XX
+      if (digits.length <= 1) return digits;
+      if (digits.length <= 3) return `${digits.slice(0, 1)} ${digits.slice(1)}`;
+      if (digits.length <= 5) return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3)}`;
+      if (digits.length <= 7) return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+      return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`;
     }
     return digits;
   };
@@ -155,6 +192,80 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    // Track active service card in carousel on mobile
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setActiveServiceCard(null);
+        return;
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    if (window.innerWidth > 768) {
+      return () => window.removeEventListener('resize', handleResize);
+    }
+
+    const serviceCards = document.querySelectorAll('.service-card');
+    if (serviceCards.length === 0) {
+      return () => window.removeEventListener('resize', handleResize);
+    }
+
+    const updateActiveCard = () => {
+      const container = document.querySelector('.services-container');
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      
+      let closestCard: { index: number; distance: number } | null = null;
+
+      serviceCards.forEach((card, index) => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.left + rect.width / 2;
+        const distance = Math.abs(cardCenter - containerCenter);
+        
+        if (!closestCard || distance < closestCard.distance) {
+          closestCard = { index, distance };
+        }
+      });
+
+      if (closestCard && closestCard.distance < 100) {
+        setActiveServiceCard(closestCard.index);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      () => {
+        updateActiveCard();
+      },
+      {
+        root: document.querySelector('.services-container'),
+        rootMargin: '0px',
+        threshold: [0.3, 0.5, 0.7, 1.0]
+      }
+    );
+
+    serviceCards.forEach((card) => observer.observe(card));
+    
+    const container = document.querySelector('.services-container');
+    if (container) {
+      container.addEventListener('scroll', updateActiveCard, { passive: true });
+    }
+
+    // Initial check
+    updateActiveCard();
+
+    return () => {
+      serviceCards.forEach((card) => observer.unobserve(card));
+      if (container) {
+        container.removeEventListener('scroll', updateActiveCard);
+      }
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [servicesVisible]);
 
   useEffect(() => {
     // Эффект пишущей машинки для заголовка "Направления"
@@ -733,7 +844,7 @@ function App() {
                 setModalType('discuss');
                 setAuditModalOpen(true);
               }}>
-                {t('Обсудить проект', 'Discuss Your Project')}
+                {t('Обсудить проект', 'Start a Project')}
         </button>
       </div>
             <button 
@@ -747,6 +858,14 @@ function App() {
         </button>
           </nav>
           <div className={`mobile-menu ${mobileMenuOpen ? 'active' : ''}`}>
+            <button 
+              className="mobile-menu-close"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Закрыть меню"
+            >
+              <span className="mobile-menu-close-line"></span>
+              <span className="mobile-menu-close-line"></span>
+            </button>
             <ul className="mobile-menu-list">
               <li><a href="#main" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>{t('Главная', 'Home')}</a></li>
               <li><a href="#services" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>{t('Направления', 'Services')}</a></li>
@@ -758,7 +877,7 @@ function App() {
                 setModalType('discuss');
                 setAuditModalOpen(true);
               }}>
-                {t('Обсудить проект', 'Discuss Your Project')}
+                {t('Обсудить проект', 'Start a Project')}
               </button></li>
             </ul>
           </div>
@@ -847,7 +966,7 @@ function App() {
               <div className="stat-item">
                 <div className="stat-number stat-number-4in1">
                   <span className={`stat-4 ${stat4Visible ? 'visible' : ''}`}>4</span>
-                  <span className={`stat-v ${stat4Visible ? 'visible' : ''}`}>в</span>
+                  <span className={`stat-v ${stat4Visible ? 'visible' : ''}`}>{language === 'ru' ? 'в' : 'in'}</span>
                   <span className={`stat-1 ${stat4Visible ? 'visible' : ''}`}>1</span>
                 </div>
                 <div className="stat-label">
@@ -878,8 +997,9 @@ function App() {
           <h2 className={`section-title ${servicesVisible ? 'section-title-animate' : ''}`}>
             {t('Направления', 'Services')}
           </h2>
-          <div className="services-grid">
-            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''}`}>
+          <div className="services-container">
+            <div className="services-grid">
+            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''} ${activeServiceCard === 0 ? 'service-card-active' : ''}`}>
               <div className="service-icon">
                 <Rocket size={40} color="#F15A29" />
               </div>
@@ -906,7 +1026,7 @@ function App() {
               </div>
             </div>
 
-            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''}`}>
+            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''} ${activeServiceCard === 1 ? 'service-card-active' : ''}`}>
               <div className="service-icon">
                 <Bot size={40} color="#F15A29" />
               </div>
@@ -932,7 +1052,7 @@ function App() {
               </div>
             </div>
 
-            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''}`}>
+            <div className={`service-card ${servicesVisible ? 'service-card-animate' : ''} ${activeServiceCard === 2 ? 'service-card-active' : ''}`}>
               <div className="service-icon">
                 <Wrench size={40} color="#F15A29" />
               </div>
@@ -964,6 +1084,7 @@ function App() {
                   {t('Сайт как инструмент продаж.', 'Website as a sales tool.')}
                 </p>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1055,7 +1176,8 @@ function App() {
           
           <div className="cases-category">
             <h3 className="cases-category-title">{t('SEO + Google PPC', 'SEO + Google PPC')}</h3>
-            <div className="cases-grid">
+            <div className="cases-container">
+              <div className="cases-grid">
               <div className="case-card">
                 <div className="case-image case-image-with-hover">
                   <img src="/img/Portfolio_SEO_PPC_1.webp" alt="PPC Case" />
@@ -1125,12 +1247,14 @@ function App() {
                   </p>
                 </div>
               </div>
+              </div>
             </div>
           </div>
 
           <div className="cases-category">
             <h3 className="cases-category-title">{t('AI-автоматизации', 'AI automation')}</h3>
-            <div className="cases-grid">
+            <div className="cases-container">
+              <div className="cases-grid">
               <div className="case-card">
                 <div className="case-image case-image-with-hover">
                   <img src="/img/Portfolio_Automatization_1.webp" alt="Automation Case" />
@@ -1167,12 +1291,14 @@ function App() {
                   </p>
                 </div>
               </div>
+              </div>
             </div>
           </div>
 
           <div className="cases-category">
             <h3 className="cases-category-title">{t('Разработка IT-проектов', 'IT project development')}</h3>
-            <div className="cases-grid">
+            <div className="cases-container">
+              <div className="cases-grid">
               <div className="case-card">
                 <div className="case-image case-image-with-hover">
                   <img src="/img/Portfolio_web_1.webp" alt="Web Development Case" />
@@ -1253,6 +1379,7 @@ function App() {
                   </div>
                   <p className="case-results">{t('Вайб-код решение для диджитал-агентства Сплинтара, проект был реализован одним сотрудником без привлечения дизайнера, верстальщика и разработчиков', 'Vibe-code solution for Splintara digital agency, the project was implemented by one employee without involving a designer, layout designer and developers')}</p>
                 </div>
+              </div>
               </div>
             </div>
           </div>
@@ -1442,6 +1569,10 @@ function App() {
                 else if (contactPhoneCountry === '+1') minLength = 10;
                 else if (contactPhoneCountry === '+34') minLength = 9;
                 else if (contactPhoneCountry === '+39') minLength = 10;
+                else if (contactPhoneCountry === '+48') minLength = 9;
+                else if (contactPhoneCountry === '+44') minLength = 10;
+                else if (contactPhoneCountry === '+49') minLength = 10;
+                else if (contactPhoneCountry === '+33') minLength = 9;
                 if (phoneDigits.length < minLength) {
                   errors.phone = t('Введите корректный номер телефона', 'Enter a valid phone number');
                   isValid = false;
@@ -1451,8 +1582,45 @@ function App() {
               setContactFormErrors(errors);
 
               if (isValid) {
-                console.log('Form submitted:', contactFormData);
-                // Здесь будет отправка формы
+                setContactFormState({ loading: true, success: false, error: null });
+
+                submitContactForm({
+                  firstName: contactFormData.firstName,
+                  email: contactFormData.email,
+                  phone: `${contactPhoneCountry} ${contactFormData.phone}`,
+                  site: contactFormData.site,
+                  source: 'sales_system_form'
+                })
+                  .then(() => {
+                    setContactFormState({ loading: false, success: true, error: null });
+                    
+                    // Reset form
+                    setContactFormData({
+                      firstName: '',
+                      site: '',
+                      email: '',
+                      phone: ''
+                    });
+                    setContactPhoneCountry('+380');
+                    setContactFormErrors({
+                      firstName: '',
+                      site: '',
+                      email: '',
+                      phone: ''
+                    });
+
+                    // Reset success message after 5 seconds
+                    setTimeout(() => {
+                      setContactFormState({ loading: false, success: false, error: null });
+                    }, 5000);
+                  })
+                  .catch((error) => {
+                    setContactFormState({
+                      loading: false,
+                      success: false,
+                      error: error instanceof Error ? error.message : 'Failed to submit form'
+                    });
+                  });
               }
             }}>
               <div className="cta-form-row">
@@ -1520,7 +1688,7 @@ function App() {
                     type="tel" 
                     id="phone" 
                     name="phone" 
-                    placeholder={contactPhoneCountry === '+380' ? '12 345 67 89*' : contactPhoneCountry === '+1' ? '(999) 123-4567*' : contactPhoneCountry === '+34' ? '123 456 789*' : contactPhoneCountry === '+39' ? '123 456 7890*' : '123 456 789*'}
+                    placeholder={contactPhoneCountry === '+380' ? '12 345 67 89*' : contactPhoneCountry === '+1' ? '(999) 123-4567*' : contactPhoneCountry === '+34' ? '123 456 789*' : contactPhoneCountry === '+39' ? '123 456 7890*' : contactPhoneCountry === '+48' ? '123 456 789*' : contactPhoneCountry === '+44' ? '123 4567 8901*' : contactPhoneCountry === '+49' ? '123 45678901*' : contactPhoneCountry === '+33' ? '1 23 45 67 89*' : '123 456 789*'}
                     value={contactFormData.phone}
                     onChange={(e) => {
                       const formatted = formatPhoneNumber(e.target.value, contactPhoneCountry);
@@ -1531,13 +1699,33 @@ function App() {
                 </div>
                 {contactFormErrors.phone && <span className="form-error">{contactFormErrors.phone}</span>}
               </div>
-              <button type="submit" className="cta-form-submit">
-                {t('Отправить сообщение', 'Send message')}
-                <ArrowUpRight size={20} />
-              </button>
-              <p className="cta-form-legal">
-                {t('Заполняя форму, вы соглашаетесь с нашими', 'By filling out the form, you agree to our')} <a href={`/terms?lang=${language}`}>{t('Условиями', 'Terms')}</a> {t('и', 'and')} <a href={`/privacy?lang=${language}`}>{t('Политикой конфиденциальности', 'Privacy Policy')}</a>.
-              </p>
+              {contactFormState.success ? (
+                <div className="form-success-message">
+                  {t('Спасибо! Мы свяжемся с вами в ближайшее время.', 'Thank you! We will contact you shortly.')}
+                </div>
+              ) : (
+                <>
+                  {contactFormState.error && (
+                    <div className="form-error-message">
+                      {contactFormState.error}
+                    </div>
+                  )}
+                  <button 
+                    type="submit" 
+                    className="cta-form-submit"
+                    disabled={contactFormState.loading}
+                  >
+                    {contactFormState.loading 
+                      ? t('Отправка...', 'Sending...') 
+                      : t('Отправить сообщение', 'Send message')
+                    }
+                    {!contactFormState.loading && <ArrowUpRight size={20} />}
+                  </button>
+                  <p className="cta-form-legal">
+                    {t('Заполняя форму, вы соглашаетесь с нашими', 'By filling out the form, you agree to our')} <a href={`/terms?lang=${language}`}>{t('Условиями', 'Terms')}</a> {t('и', 'and')} <a href={`/privacy?lang=${language}`}>{t('Политикой конфиденциальности', 'Privacy Policy')}</a>.
+                  </p>
+                </>
+              )}
             </form>
           </div>
         </div>
@@ -1561,7 +1749,8 @@ function App() {
           <h2 className="section-title">
             {t('Отзывы клиентов', 'Client reviews')}
           </h2>
-          <div className="testimonials-grid">
+          <div className="testimonials-container">
+            <div className="testimonials-grid">
             <div className="testimonial-card">
               <p className="testimonial-text">
                 {t('Проблема была в качестве заявок — их было достаточно, но большая часть плохо конвертировала в продажи так как клиенты приходили с запросами не имеющими отношения к нашему продукту. Вместе с командой мы перебрали семантику и нашли слабые места в функционале и посадочных страницах, исправили технические ошибки влияющие на рекламную кампанию.', 'The problem was in the quality of leads — there were enough of them, but most converted poorly into sales because clients came with queries unrelated to our product. Together with the team, we reviewed the semantics and found weak points in functionality and landing pages, fixed technical errors affecting the advertising campaign.')}
@@ -1645,6 +1834,7 @@ function App() {
                   <p className="testimonial-role">Product Owner</p>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -2059,7 +2249,7 @@ function App() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p className="footer-copyright">© 2025 Go2Agency. {t('Все права защищены.', 'All rights reserved.')}</p>
+            <p className="footer-copyright">© {new Date().getFullYear()} Go2Agency. {t('Все права защищены.', 'All rights reserved.')}</p>
             <div className="footer-made-wrapper">
               <p className="footer-made">
                 {t('Сделано с любовью с помощью вайб-код решений. Ни один разработчик не пострадал', 'Made with love using vibe-code solutions. No developers were harmed')} <Heart size={16} className="heart" />
@@ -2076,12 +2266,50 @@ function App() {
             <button className="modal-close" onClick={() => setAuditModalOpen(false)}>
               <X size={24} />
             </button>
-            <h2 className="modal-title">{modalType === 'audit' ? t('Бесплатный аудит', 'Book a Free Audit') : t('Обсудить проект', 'Discuss the project')}</h2>
-            <form className="audit-form" onSubmit={(e) => {
+            <h2 className="modal-title">{modalType === 'audit' ? t('Бесплатный аудит', 'Book a Free Audit') : t('Обсудить проект', 'Start a Project')}</h2>
+            <form className="audit-form" onSubmit={async (e) => {
               e.preventDefault();
-              // Здесь будет обработка отправки формы
-              console.log('Form submitted:', formData);
-              setAuditModalOpen(false);
+              
+              // Determine source based on modal type
+              const source: ContactFormSource = modalType === 'discuss' 
+                ? 'header_discuss_project' 
+                : 'hero_free_audit';
+
+              setAuditFormState({ loading: true, success: false, error: null });
+
+              try {
+                await submitContactForm({
+                  name: formData.name,
+                  email: formData.email,
+                  phone: `${phoneCountry} ${formData.phone}`,
+                  site: formData.site,
+                  agree: formData.agree,
+                  source
+                });
+
+                setAuditFormState({ loading: false, success: true, error: null });
+                
+                // Reset form
+                setFormData({
+                  name: '',
+                  email: '',
+                  phone: '',
+                  site: '',
+                  agree: false
+                });
+
+                // Close modal after 2 seconds
+                setTimeout(() => {
+                  setAuditModalOpen(false);
+                  setAuditFormState({ loading: false, success: false, error: null });
+                }, 2000);
+              } catch (error) {
+                setAuditFormState({
+                  loading: false,
+                  success: false,
+                  error: error instanceof Error ? error.message : 'Failed to submit form'
+                });
+              }
             }}>
               <div className="form-group">
                 <label htmlFor="name" className="form-label">
@@ -2136,7 +2364,7 @@ function App() {
                     id="phone"
                     className="form-input phone-input"
                     required
-                    placeholder={phoneCountry === '+380' ? '12 345 67 89' : phoneCountry === '+1' ? '(999) 123-4567' : phoneCountry === '+34' ? '123 456 789' : phoneCountry === '+39' ? '123 456 7890' : '123 456 789'}
+                    placeholder={phoneCountry === '+380' ? '12 345 67 89' : phoneCountry === '+1' ? '(999) 123-4567' : phoneCountry === '+34' ? '123 456 789' : phoneCountry === '+39' ? '123 456 7890' : phoneCountry === '+48' ? '123 456 789' : phoneCountry === '+44' ? '123 4567 8901' : phoneCountry === '+49' ? '123 45678901' : phoneCountry === '+33' ? '1 23 45 67 89' : '123 456 789'}
                     value={formData.phone}
                     onChange={(e) => {
                       const formatted = formatPhoneNumber(e.target.value, phoneCountry);
@@ -2171,12 +2399,32 @@ function App() {
                   <span>{t('Я согласен на обработку моих персональных данных в соответствии с', 'I agree to the processing of my personal data in accordance with')} <a href={`/privacy?lang=${language}`} className="form-link">{t('Политикой конфиденциальности', 'Privacy Policy')}</a>.</span>
                 </label>
               </div>
-              <button type="submit" className="btn btn-primary form-submit">
-                {t('Отправить запрос', 'Send request')}
-              </button>
-              <p className="form-footer-text">
-                {t('Мы используем ваши данные только для ответа на ваш запрос.', 'We use your data only to respond to your request.')}
-              </p>
+              {auditFormState.success ? (
+                <div className="form-success-message">
+                  {t('Спасибо! Мы свяжемся с вами в ближайшее время.', 'Thank you! We will contact you shortly.')}
+                </div>
+              ) : (
+                <>
+                  {auditFormState.error && (
+                    <div className="form-error-message">
+                      {auditFormState.error}
+                    </div>
+                  )}
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary form-submit"
+                    disabled={auditFormState.loading}
+                  >
+                    {auditFormState.loading 
+                      ? t('Отправка...', 'Sending...') 
+                      : t('Отправить запрос', 'Send request')
+                    }
+                  </button>
+                  <p className="form-footer-text">
+                    {t('Мы используем ваши данные только для ответа на ваш запрос.', 'We use your data only to respond to your request.')}
+                  </p>
+                </>
+              )}
             </form>
           </div>
         </div>

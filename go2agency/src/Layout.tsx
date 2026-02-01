@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart } from 'lucide-react'
 import './App.css'
@@ -10,9 +10,13 @@ interface LayoutProps {
   setMobileMenuOpen: (open: boolean) => void
   setModalType: (type: 'audit' | 'discuss') => void
   setAuditModalOpen: (open: boolean) => void
+  language?: 'ru' | 'en'
+  setLanguage?: (lang: 'ru' | 'en') => void
 }
 
-function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setModalType, setAuditModalOpen }: LayoutProps) {
+function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setModalType, setAuditModalOpen, language = 'en', setLanguage }: LayoutProps) {
+  const t = (ru: string, en: string) => (language === 'ru' ? ru : en);
+  
   return (
     <>
       <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
@@ -30,15 +34,41 @@ function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setMo
             </ul>
             <div className="nav-actions">
               <div className="lang-switcher" aria-label="Language switcher">
-                <button className="lang-btn lang-btn-active" type="button">Ukr</button>
+                <button
+                  className={`lang-btn ${language === 'en' ? 'lang-btn-active' : ''}`}
+                  type="button"
+                  onClick={() => {
+                    if (setLanguage) {
+                      setLanguage('en');
+                      if (typeof window !== 'undefined') {
+                        localStorage.setItem('go2-lang', 'en');
+                      }
+                    }
+                  }}
+                >
+                  EN
+                </button>
                 <span className="lang-divider">|</span>
-                <button className="lang-btn" type="button">Ru</button>
+                <button
+                  className={`lang-btn ${language === 'ru' ? 'lang-btn-active' : ''}`}
+                  type="button"
+                  onClick={() => {
+                    if (setLanguage) {
+                      setLanguage('ru');
+                      if (typeof window !== 'undefined') {
+                        localStorage.setItem('go2-lang', 'ru');
+                      }
+                    }
+                  }}
+                >
+                  RU
+                </button>
               </div>
               <button className="btn btn-secondary nav-cta" onClick={() => {
                 setModalType('discuss');
                 setAuditModalOpen(true);
               }}>
-                Discuss Your Project
+                {t('Обсудить проект', 'Start a Project')}
               </button>
             </div>
             <button 
@@ -52,6 +82,14 @@ function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setMo
             </button>
           </nav>
           <div className={`mobile-menu ${mobileMenuOpen ? 'active' : ''}`}>
+            <button 
+              className="mobile-menu-close"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              <span className="mobile-menu-close-line"></span>
+              <span className="mobile-menu-close-line"></span>
+            </button>
             <ul className="mobile-menu-list">
               <li><Link to="/#main" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Home</Link></li>
               <li><Link to="/#services" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Services</Link></li>
@@ -63,7 +101,7 @@ function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setMo
                 setModalType('discuss');
                 setAuditModalOpen(true);
               }}>
-                Discuss Your Project
+                {t('Обсудить проект', 'Start a Project')}
               </button></li>
             </ul>
           </div>
@@ -106,13 +144,13 @@ function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setMo
             <div className="footer-column">
               <h3 className="footer-title">Documents</h3>
               <ul className="footer-links">
-                <li><Link to="/privacy">Privacy Policy</Link></li>
-                <li><Link to="/terms">Terms of Service</Link></li>
+                <li><Link to={`/privacy${language === 'ru' ? '?lang=ru' : '?lang=en'}`}>Privacy Policy</Link></li>
+                <li><Link to={`/terms${language === 'ru' ? '?lang=ru' : '?lang=en'}`}>Terms of Service</Link></li>
               </ul>
             </div>
           </div>
           <div className="footer-bottom">
-            <p className="footer-copyright">© 2025 Go2Agency. All rights reserved.</p>
+            <p className="footer-copyright">© {new Date().getFullYear()} Go2Agency. All rights reserved.</p>
             <div className="footer-made-wrapper">
               <p className="footer-made">
                 Made with love using vibe-code solutions. No developers were harmed <Heart size={16} className="heart" />
