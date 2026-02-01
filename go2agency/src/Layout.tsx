@@ -163,5 +163,4 @@ function Layout({ children, isScrolled, mobileMenuOpen, setMobileMenuOpen, setMo
   )
 }
 
-export default Layout
-
+export default Layout;
